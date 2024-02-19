@@ -17,6 +17,8 @@ from scipy import sparse
 
 from scipy.spatial.distance import pdist, squareform
 
+from skspatial.objects import Plane
+import pointTriangleDistance as ptd
 
 
 def sparse_cholesky(A): # The input matrix A must be a sparse symmetric positive-definite.
@@ -447,33 +449,67 @@ def apply_correction(G_, R2_, Glmks, li, pidx, iod, correction_param, G0=None, l
 
 
 
-
-
-
-
-class ErrorComputerKnown:
+class DistanceComputer:
+    # Class for choosing the distance type to use. It assumes the point correspondences are already known.
+    def __init__(self, type='p2p'):
+        # type can be: p2p, p2plane, p2tri
+        self.type_dist = type
     
-    def __init__(self, method_params=None):
+    # Assumes point correspondence is known. R is the registered points, G is the ground truth points which match 1-to-1 with R
+    def compute_distance(self, R, G):
+        N = R.shape[0]
+        if self.type_dist == 'p2p':
+            err = np.sqrt((((R-G)**2).sum(axis=1)))
+        elif self.type_dist == 'p2plane':
+            err = 0 # Not implemented for now
+        elif self.type_dist == 'p2tri':
+            err = np.zeros(N)
+            for i in range(N):
+                pidx = np.argsort(np.sqrt((((G[i,:]-G)**2).sum(axis=1))))[0:3] # select 3-NN for each point in G. The 0-th is the point itself
+                # p1,p2,p3 = G[pidx,:]
+                # plane = Plane.from_points(p1,p2,p3) # Plane also defines a normal vector so it can be used for p2plane
+                # err[i] = plane.distance_point(R[i,:])
+                err[i], _ = ptd.pointTriangleDistance(G[pidx,:],R[i,:])
+        else:
+            raise ValueError('Unknown distance type')
+        
+        return err
+    
+    def get_key(self, landmark_computer):
+        return self.type_dist
+
+    def get_label(self):
+        return self.type_dist
+    
+    def __str__(self):
+        return self.get_label()
+
+
+
+class ErrorComputerKnown: # This class only was modified with distance computer
+    
+    def __init__(self, dist_type='p2p', method_params=None):
         self.require_Dmatrix = False
         self.require_landmarks = False
         self.direction = 'RG'
+        self.dist_type = dist_type
+        self.distance_computer = DistanceComputer(dist_type)
     
     def compute_error(self, R, G, Dx=None, gt_landmarks=None, li=None, iod=None, cpts=None, return_corr=False, li0=None, G0=None):
         N = R.shape[0]
-        err = np.sqrt((((R-G[:N,:])**2).sum(axis=1)))
-        
+        # err = np.sqrt((((R-G[:N,:])**2).sum(axis=1)))
+        err = self.distance_computer.compute_distance(R, G[:N,:])
         if return_corr:
             pidx = np.arange(len(err)).astype(int)#.reshape(-1,1)
-            
             return (err, pidx)
         else:
             return err
     
     def get_key(self, landmark_computer):
-        return 'known'
+        return 'known_' + self.dist_type
 
     def get_label(self):
-        return 'Known'
+        return 'known_' + self.dist_type
 
 
 

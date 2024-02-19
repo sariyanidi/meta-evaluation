@@ -25,6 +25,7 @@ parser.add_argument('--dbroot', type=str, default='data/meshes')
 parser.add_argument('--cacheroot', type=str, default='data/cache')
 parser.add_argument('--num_processes', type=int, default=2)
 
+print('Start program',flush=True)
 
 args = parser.parse_args()
 iod_ptg = None # 0.2
@@ -41,7 +42,7 @@ imean = args.imean
 auto_lmks = args.auto_lmks
 num_lmks =  args.num_lmks
 
-ecs = [ErrorComputerKnown(), ErrorComputerLandmarks(), ErrorComputerChamfer()]
+ecs = [ErrorComputerKnown(dist_type='p2tri')]#, ErrorComputerLandmarks(), ErrorComputerChamfer()]
 median = 0 #int(sys.argv[5])
 methods = ['3DDFAv2-F50']
 
@@ -97,7 +98,7 @@ import multiprocessing as mp
 pool = mp.Pool(processes=args.num_processes)
 pool.map(func, param_sets)
 
-print("=============================================================")
+print("=============================================================", flush=True)
 import matplotlib.pyplot as plt
 
 N0 = 0
